@@ -1,5 +1,6 @@
 package cli;
 
+import models.Instance;
 import models.Job;
 import models.Machine;
 import utils.InstanceParser;
@@ -18,5 +19,7 @@ public class Main {
         String instance = "instance-1.txt";
 
         InstanceParser.parseInstance(jobs, machines, FILEPATH, instance);
+
+        Instance i = new Instance(jobs);
     }
 }

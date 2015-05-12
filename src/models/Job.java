@@ -12,11 +12,12 @@ public class Job {
      * machineOrder -> the order in which the job must be processed
      * processingTimes -> the time the job takes in each machine
      */
-
     private int id;
     private boolean allocated;
     private int earliestStartingTime;
     private int latestStartingTime;
+    private int earliestEndingTime;
+    private int latestEndingTime;
     private ArrayList<Integer> machineOrder;
     private ArrayList<Integer> processingTimes;
 
@@ -39,8 +40,32 @@ public class Job {
         return earliestStartingTime;
     }
 
+    public void setEarliestStartingTime(int earliestStartingTime) {
+        this.earliestStartingTime = earliestStartingTime;
+    }
+
     public int getLatestStartingTime() {
         return latestStartingTime;
+    }
+
+    public void setLatestStartingTime(int latestStartingTime) {
+        this.latestStartingTime = latestStartingTime;
+    }
+
+    public int getEarliestEndingTime() {
+        return earliestEndingTime;
+    }
+
+    public void setEarliestEndingTime(int earliestEndingTime) {
+        this.earliestEndingTime = earliestEndingTime;
+    }
+
+    public int getLatestEndingTime() {
+        return latestEndingTime;
+    }
+
+    public void setLatestEndingTime(int latestEndingTime) {
+        this.latestEndingTime = latestEndingTime;
     }
 
     public ArrayList<Integer> getMachineOrder() {
