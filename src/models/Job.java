@@ -13,21 +13,23 @@ public class Job {
      * processingTimes -> the time the job takes in each machine
      */
     private int id;
+    // not in use atm area //
     private boolean allocated;
-    private int earliestStartingTime;
-    private int latestStartingTime;
-    private int earliestEndingTime;
-    private int latestEndingTime;
+    // end not in use atm area //
+
+    private ArrayList<Task> tasks;
     private ArrayList<Integer> machineOrder;
     private ArrayList<Integer> processingTimes;
 
-    // TODO: implement earliest and latest starting time
-    // maybe calculate them using CPM/PERT and pass them as constructor parameters
     public Job(int id, ArrayList<Integer> machineOrder, ArrayList<Integer> processingTimes){
         this.id = id;
-        this. allocated = false;
-        this.earliestStartingTime = 0;
-        this.latestStartingTime = 0;
+        this.allocated = false;
+
+        this.tasks = new ArrayList<>();
+        for (int i = 0; i < machineOrder.size(); i++) {
+            this.tasks.add(new Task(id, machineOrder.get(i), processingTimes.get(i)));
+        }
+
         this.machineOrder = machineOrder;
         this.processingTimes = processingTimes;
     }
@@ -36,36 +38,21 @@ public class Job {
         return id;
     }
 
-    public int getEarliestStartingTime() {
-        return earliestStartingTime;
+    public ArrayList<Task> getTasks(){
+        return this.tasks;
     }
 
-    public void setEarliestStartingTime(int earliestStartingTime) {
-        this.earliestStartingTime = earliestStartingTime;
+    public Task getTask( int i ){
+        return this.tasks.get(i);
     }
 
-    public int getLatestStartingTime() {
-        return latestStartingTime;
-    }
+    public Task getTaskOnMachine( int m ){
+        for (int i = 0; i < tasks.size(); i++) {
+            if( tasks.get(i).getMachine() == m )
+                return tasks.get(i);
+        }
 
-    public void setLatestStartingTime(int latestStartingTime) {
-        this.latestStartingTime = latestStartingTime;
-    }
-
-    public int getEarliestEndingTime() {
-        return earliestEndingTime;
-    }
-
-    public void setEarliestEndingTime(int earliestEndingTime) {
-        this.earliestEndingTime = earliestEndingTime;
-    }
-
-    public int getLatestEndingTime() {
-        return latestEndingTime;
-    }
-
-    public void setLatestEndingTime(int latestEndingTime) {
-        this.latestEndingTime = latestEndingTime;
+        return null;
     }
 
     public ArrayList<Integer> getMachineOrder() {
@@ -77,11 +64,20 @@ public class Job {
     }
 
     public ArrayList<Integer> getProcessingTimes() {
-        return machineOrder;
+        return processingTimes;
     }
 
     public Integer getProcessingTimes(int i){
-        return machineOrder.get(i);
+        return processingTimes.get(i);
+    }
+
+    public Integer getMachineProcessingTime(int m){
+        for (int i = 0; i < machineOrder.size(); i++) {
+            if( machineOrder.get(i) == m )
+                return this.getProcessingTimes( i );
+        }
+
+        return -1;
     }
 
     public boolean isAllocated() {
@@ -102,4 +98,5 @@ public class Job {
 
         return s;
     }
+
 }

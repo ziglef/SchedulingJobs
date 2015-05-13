@@ -4,11 +4,15 @@ import org.graphstream.graph.implementations.MultiGraph;
 
 import java.util.ArrayList;
 
-public class Instance {
+public class BBInstance {
 
     private MultiGraph initialState;
+    private ArrayList<Job> jobs;
 
-    public Instance( ArrayList<Job> jobs ){
+    public BBInstance(ArrayList<Job> jobs){
+        // Save the job list
+        this.jobs = jobs;
+
         // Create the "HashTable" for tasks using the same machine
         ArrayList<ArrayList<String>> sameMachineTasks = new ArrayList<>();
         for (int i = 0; i < jobs.size(); i++) {
@@ -37,9 +41,16 @@ public class Instance {
                 initialState
                         .getNode("(" + j.getId() + "," + jMachines.get(i) + ")")
                         .addAttribute("machine", jMachines.get(i));
+                initialState
+                        .getNode("(" + j.getId() + "," + jMachines.get(i) + ")")
+                        .addAttribute("processingTime", jTimes.get(i));
 
                 // Setup edge from the source to the new node
                 if( i == 0 ){
+                    initialState
+                            .getNode("(" + j.getId() + "," + jMachines.get(i) + ")")
+                            .addAttribute("releaseDate", 0);
+
                     initialState
                             .addEdge("E: (SOURCE ->" + "(" + j.getId() + "," + jMachines.get(i) + "))",
                                     "SOURCE",
@@ -51,6 +62,11 @@ public class Instance {
                             .addAttribute("weight", 0);
                 // Setup edge from previous task to actual task
                 } else {
+                    int Rij = j.getProcessingTimes(i) + (Integer)initialState.getNode("(" + j.getId() + "," + jMachines.get(i-1) + ")").getAttribute("releaseDate");
+                            initialState
+                            .getNode("(" + j.getId() + "," + jMachines.get(i) + ")")
+                            .addAttribute("releaseDate", Rij);
+
                     initialState
                             .addEdge(
                                     "E: ((" + j.getId() + "," + jMachines.get(i - 1) + ")->(" + j.getId() + "," + jMachines.get(i) + "))",
@@ -109,7 +125,18 @@ public class Instance {
                 }
             }
         }
+        // initialState.display();
+    }
 
-        initialState.display();
+    public MultiGraph getInitialState() {
+        return initialState;
+    }
+
+    public ArrayList<Job> getJobs() {
+        return jobs;
+    }
+
+    public Job getJob(int i) {
+        return jobs.get(i);
     }
 }

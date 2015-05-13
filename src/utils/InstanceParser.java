@@ -36,6 +36,7 @@ public final class InstanceParser {
                 // Gather information for the creation of the new job //
                 tempMachines.add(scanner.nextInt());
                 tempTimes.add(scanner.nextInt());
+                // System.out.println("Just added (m, pt): (" + tempMachines.get(tempMachines.size()-1) + "," + tempTimes.get(tempTimes.size()-1) + ")");
             }
             jobs.add(new Job(i, tempMachines, tempTimes));
         }

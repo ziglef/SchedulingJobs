@@ -1,8 +1,9 @@
 package cli;
 
-import models.Instance;
+import models.BBInstance;
 import models.Job;
 import models.Machine;
+import solver.BBInstanceSolver;
 import utils.InstanceParser;
 
 import java.util.ArrayList;
@@ -20,6 +21,13 @@ public class Main {
 
         InstanceParser.parseInstance(jobs, machines, FILEPATH, instance);
 
-        Instance i = new Instance(jobs);
+/*
+        for(Job j : jobs){
+            System.out.println(j);
+        }
+*/
+
+        BBInstance bbInstance = new BBInstance(jobs);
+        BBInstanceSolver.BBSolver(bbInstance);
     }
 }
