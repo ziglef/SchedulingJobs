@@ -48,7 +48,7 @@ public class Instance {
 
                     initialState
                             .getEdge("E: (SOURCE ->" + "(" + j.getId() + "," + jMachines.get(i) + "))")
-                            .addAttribute("weight", jTimes.get(i));
+                            .addAttribute("weight", 0);
                 // Setup edge from previous task to actual task
                 } else {
                     initialState
