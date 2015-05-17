@@ -24,21 +24,27 @@ public final class InstanceParser {
 
         noJobs = scanner.nextInt();
         noMachines = scanner.nextInt();
+        scanner.nextLine();
 
         for (int i = 0; i < noJobs; i++) {
             ArrayList<Integer> tempMachines = new ArrayList<>();
             ArrayList<Integer> tempTimes = new ArrayList<>();
-            for (int j = 0; j < noMachines; j++) {
-                // Initialize machine array //
-                if( i==0 && j % 2 == 0)
-                    machines.add(new Machine(j));
+            Scanner lineScanner = new Scanner(scanner.nextLine());
 
-                // Gather information for the creation of the new job //
-                tempMachines.add(scanner.nextInt());
-                tempTimes.add(scanner.nextInt());
-                // System.out.println("Just added (m, pt): (" + tempMachines.get(tempMachines.size()-1) + "," + tempTimes.get(tempTimes.size()-1) + ")");
+            // System.out.println("Task " + i + ":");
+            for (int j = 0; j < noMachines; j++) {
+                if( lineScanner.hasNextInt() ) {
+                    // Gather information for the creation of the new job //
+                    tempMachines.add(lineScanner.nextInt());
+                    tempTimes.add(lineScanner.nextInt());
+                    // System.out.println("Just added (m, pt): (" + tempMachines.get(tempMachines.size()-1) + "," + tempTimes.get(tempTimes.size()-1) + ")");
+                }
             }
             jobs.add(new Job(i, tempMachines, tempTimes));
+        }
+
+        for (int i = 0; i < noMachines; i++) {
+            machines.add(new Machine(i));
         }
     }
 
