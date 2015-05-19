@@ -204,11 +204,7 @@ public class BBInstanceSolver {
         return currInstance;
     }
 
-    private static void getLongestPathApprox(BBInstance currInstance) {
-
-    }
-
-    private static void getLongestPath(BBInstance instance){
+    private static ArrayList<Node> topologicalSort(BBInstance instance){
         // General vars
         MultiGraph graphToSort = (MultiGraph)Graphs.clone(instance.getInitialStateSimple());
         Node n;
@@ -249,8 +245,8 @@ public class BBInstanceSolver {
 
                 // Get new leafs
                 if( gn.getEnteringEdgeSet().size() > 0 &&
-                    !visitedVertices.contains(gn) &&
-                    visitedVertices.containsAll(gnEnteringNeighbours) )
+                        !visitedVertices.contains(gn) &&
+                        visitedVertices.containsAll(gnEnteringNeighbours) )
                     currVertexSet.add(gn);
             }
         }
@@ -259,6 +255,16 @@ public class BBInstanceSolver {
         if( topSort.size() != graphToSort.getNodeCount() ) {
             System.out.println("Error in topSort");
         }
+
+        return topSort;
+    }
+
+    private static void getLongestPathApprox(BBInstance currInstance) {
+
+    }
+
+    private static void getLongestPath(BBInstance instance){
+       ArrayList<Node> topSort = topologicalSort(instance);
 
         // Set longest path for all nodes
         for(Node gn : topSort){
