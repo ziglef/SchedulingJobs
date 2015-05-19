@@ -20,13 +20,18 @@ public class Main {
 
         ArrayList<Job> jobs = new ArrayList<>();
         ArrayList<Machine> machines = new ArrayList<>();
-        String instance = "instance-0.txt";
+        String instance = "instance-6.txt";
 
         InstanceParser.parseInstance(jobs, machines, FILEPATH, instance);
 
         BBInstance bbInstance = new BBInstance(jobs, machines.size());
+        BBInstanceSolver.precise = true;
+        System.out.println("Press Any Key To Continue...");
+        new java.util.Scanner(System.in).nextLine();
         BBInstanceSolver.BBSolver(bbInstance);
         System.out.println("Minimum makespan: " + BBInstanceSolver.upperBound);
+        System.out.println("Press Any Key To Continue...");
+        new java.util.Scanner(System.in).nextLine();
 
         BBInstanceSolver.bbTree.display();
     }

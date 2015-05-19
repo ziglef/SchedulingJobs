@@ -31,6 +31,10 @@ public class BBInstance {
         initialState
                 .getNode("ROOT")
                 .addAttribute("ui.style", "text-background-mode: rounded-box;");
+        initialState
+                .getNode("ROOT")
+                .addAttribute("processingTime", 0);
+
         initialState.addNode("SINK");
         initialState
                 .getNode("SINK")
@@ -164,7 +168,7 @@ public class BBInstance {
                 }
             }
         }
-        initialState.display();
+        // initialState.display();
     }
 
     public MultiGraph getInitialState() {
@@ -180,11 +184,11 @@ public class BBInstance {
     }
 
     public void setInitialState(MultiGraph initialState) {
-        this.initialState = initialState;
+        this.initialState = (MultiGraph)Graphs.clone(initialState);
     }
 
     public void setInitialStateSimple(MultiGraph initialStateSimple) {
-        this.initialStateSimple = initialStateSimple;
+        this.initialStateSimple = (MultiGraph)Graphs.clone(initialStateSimple);
     }
 
     public ArrayList<Job> getJobs() {

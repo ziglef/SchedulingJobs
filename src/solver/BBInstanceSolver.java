@@ -3,16 +3,18 @@ package solver;
 import models.BBInstance;
 import org.graphstream.graph.Edge;
 import org.graphstream.graph.Node;
+import org.graphstream.graph.implementations.Graphs;
 import org.graphstream.graph.implementations.MultiGraph;
 import org.graphstream.graph.implementations.MultiNode;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.*;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public class BBInstanceSolver {
 
     public static MultiGraph bbTree = new MultiGraph("bbTree");
     public static Integer upperBound = Integer.MAX_VALUE;
+    public static boolean precise = true;
 
     // BBSolver Step 1: Initial Condition
     public static void BBSolver(BBInstance instance){
@@ -21,6 +23,7 @@ public class BBInstanceSolver {
         MultiNode newNode = bbTree.addNode("ROOT");
         newNode.addAttribute("ui.label", "ROOT");
         newNode.addAttribute("ui.style", "text-background-mode: rounded-box;");
+        newNode.addAttribute("lowerBound", 0);
 
         // get the graph
         MultiGraph G = instance.getInitialState();
@@ -44,6 +47,15 @@ public class BBInstanceSolver {
         }
         System.out.println(" }");*/
 
+        if( omega.size() == 0 ) {
+            lastInstance.setAttribute("ui.label", lastInstance.getAttribute("ui.label") + " FEASIBLE SOLUTION");
+            if( getLowerBound(currInstance, true) < upperBound )
+                upperBound = getLowerBound(currInstance, true);
+            System.out.println("New upperBound found with value: " + upperBound);
+            // currInstance.getInitialStateSimple().display();
+            return;
+        }
+
         ArrayList<Integer> tOmega = new ArrayList<>();
         ArrayList<Integer> mOmega = new ArrayList<>();
 
@@ -65,11 +77,6 @@ public class BBInstanceSolver {
             k++;
         }*/
 
-        if( tOmega.size() == 0 ) {
-            if( (Integer)lastInstance.getAttribute("lowerBound") < upperBound )
-                upperBound = lastInstance.getAttribute("lowerBound");
-            return;
-        }
         // find the minimum { rij + pij }
         int minTOmega = Collections.min(tOmega);
 
@@ -114,13 +121,12 @@ public class BBInstanceSolver {
         System.out.println(" }");*/
 
         // for each of those delete them from omega and add its follower to omega and go back to step 2
+        MultiGraph initialState = (MultiGraph)Graphs.clone(currInstance.getInitialStateSimple());
         for( MultiNode n : omegaPrime ){
             newOmega = new ArrayList<>();
             for( MultiNode mn : omega )
                 newOmega.add(mn);
             newOmega.remove(n);
-
-            String id = n.getId() + bbTree.getNodeCount();
 
             /*
             if( !lastInstance.getId().equals("ROOT") )
@@ -128,12 +134,6 @@ public class BBInstanceSolver {
             else
                 System.out.println("Removing node " + " (" + ((Integer) n.getAttribute("machine") + 1) + "," + ((Integer) n.getAttribute("job") + 1) + ")" + " and adding it to the bbTree under " + lastInstance.getId() );
             */
-
-            bbTree.addNode(id);
-            for( String s : n.getAttributeKeySet() ){
-                bbTree.getNode(id).addAttribute(s, n.getAttribute(s));
-            }
-            bbTree.addEdge(lastInstance.getId() + "->" + id, lastInstance.getId(), id);
 
             for( Edge e : n.getEdgeSet() ) {
                 if ( e.getAttribute("type").equals("conjunctive") && e.getSourceNode().equals(n) && !e.getTargetNode().getId().equals("SINK") ) {
@@ -145,25 +145,41 @@ public class BBInstanceSolver {
 
             BBInstance newInstance = updateReleaseDates(currInstance, n);
             ArrayList<MultiNode> updatedOmega = new ArrayList<>();
-
             for ( MultiNode mn : newOmega ){
                 updatedOmega.add( (MultiNode)newInstance.getInitialStateSimple().getNode(mn.getId()) );
             }
 
-            bbTree.getNode(id).addAttribute("lowerBound", getLowerBound(newInstance));
-            if( (Integer)bbTree.getNode(id).getAttribute("lowerBound") < upperBound )
+            if( getLowerBound(newInstance, false) < upperBound /* && getLowerBound(newInstance) >= (Integer)lastInstance.getAttribute("lowerBound") */) {
+                String id = n.getId() + bbTree.getNodeCount();
+                bbTree.addNode(id);
+                for (String s : n.getAttributeKeySet()) {
+                    bbTree.getNode(id).addAttribute(s, n.getAttribute(s));
+                }
+                bbTree.addEdge(lastInstance.getId() + "->" + id, lastInstance.getId(), id);
+
+                bbTree.getNode(id).addAttribute("lowerBound", getLowerBound(newInstance, false));
+                bbTree.getNode(id).setAttribute("ui.label", (String) bbTree.getNode(id).getAttribute("ui.label") + " LB: " + bbTree.getNode(id).getAttribute("lowerBound"));
+
+                // System.out.println("Exploring node: " + bbTree.getNode(id).getAttribute("ui.label"));
                 BBSolver(newInstance, updatedOmega, bbTree.getNode(id));
-            newInstance.initialStateSimpleReset();
+            }
+
+            currInstance.setInitialStateSimple(initialState);
         }
     }
 
-    // TODO: FIX ME!
     private static BBInstance updateReleaseDates( BBInstance currInstance, MultiNode from ){
         MultiGraph newState = currInstance.getInitialStateSimple();
 
         for( Node n : newState.getNodeSet() ){
-            if( !(n.getId().equals("ROOT") || n.getId().equals("SINK")) )
-                if( n.getAttribute("machine").equals(from.getAttribute("machine")) && !n.getId().equals(from.getId()) ){
+            // n.setAttribute("releaseDate", n.getAttribute("longestPath"));
+            if( !(n.getId().equals("ROOT") || n.getId().equals("SINK")) ) {
+                boolean reversed = false;
+                for(Edge e: n.getLeavingEdgeSet())
+                    if( e.getTargetNode().getId().equals(from.getId()) )
+                        reversed = true;
+
+                if (n.getAttribute("machine").equals(from.getAttribute("machine")) && !n.getId().equals(from.getId()) && !reversed) {
                     newState
                             .addEdge(
                                     "E: (" + from.getId() + "->" + n.getId() + ")" + newState.getEdgeCount(),
@@ -171,49 +187,100 @@ public class BBInstanceSolver {
                                     n.getId(),
                                     true);
                     newState
-                            .getEdge("E: (" + from.getId() + "->" + n.getId() + ")" + (newState.getEdgeCount()-1))
+                            .getEdge("E: (" + from.getId() + "->" + n.getId() + ")" + (newState.getEdgeCount() - 1))
                             .addAttribute("weight", from.getAttribute("processingTime"));
                     newState
-                            .getEdge("E: (" + from.getId() + "->" + n.getId() + ")" + (newState.getEdgeCount()-1))
+                            .getEdge("E: (" + from.getId() + "->" + n.getId() + ")" + (newState.getEdgeCount() - 1))
                             .addAttribute("type", "disjunctive");
-
-                    n.setAttribute("releaseDate", (Integer)from.getAttribute("releaseDate") + (Integer)from.getAttribute("processingTime") );
                 }
+            }
         }
 
         currInstance.setInitialStateSimple( newState );
+        if( precise )
+            getLongestPath(currInstance);
+        else
+            getLongestPathApprox(currInstance);
         return currInstance;
     }
 
-    private static Integer getLowerBound(BBInstance instance) {
-        ArrayList<Integer> times = new ArrayList<>();
-        Node root = instance.getInitialStateSimple().getNode("ROOT");
-        Node current = root;
+    private static void getLongestPathApprox(BBInstance currInstance) {
 
-        // process conjunctives times
-        for (int i = 0; i < instance.getJobs().size(); i++) {
-            // get the first node related to this job
-            for(Edge e : root.getLeavingEdgeSet())
-                if( e.getTargetNode().getAttribute("job").equals(i) )
-                    current = e.getTargetNode();
+    }
 
-            // add another time to our array equal to the releaseDate of the job
-            times.add((Integer)current.getAttribute("releaseDate"));
+    private static void getLongestPath(BBInstance instance){
+        // General vars
+        MultiGraph graphToSort = (MultiGraph)Graphs.clone(instance.getInitialStateSimple());
+        Node n;
 
-            // get the sum of the processing times from there to the sink
-            do{
-                Integer currTime = current.getAttribute("processingTime");
+        // Final topological sort
+        ArrayList<Node> topSort = new ArrayList<>();
+        // Current vertices we need to analyze
+        Queue<Node> currVertexSet = new LinkedBlockingDeque<>();
+        // All vertices already visited
+        Set<Node> visitedVertices = new HashSet<>();
+        // All vertices in the original graph
+        Set<Node> allVertices = new HashSet<>();
+        allVertices.addAll(graphToSort.getNodeSet());
 
-                for(Edge e : current.getLeavingEdgeSet() ){
-                    if( e.getAttribute("type").equals("conjunctive") )
-                        current = e.getTargetNode();
-                }
-
-                times.set(i, times.get(i) + currTime);
-            }while( !current.getId().equals("SINK") );
+        //Find leaf nodes
+        for( Node gn : allVertices ){
+            if( graphToSort.getNode(gn.getId()).getEnteringEdgeSet().size() == 0 )
+                currVertexSet.add(gn);
         }
 
-        // System.out.println("Returning " + Collections.max(times) + " as the lower bound!");
-        return Collections.max(times);
+        // Visit all leaf nodes. Build result from vertices that are visited
+        // for the first time. Add vertices to not visited leaf vertices currVertexSet, if
+        // it contains current element n and all of its values are visited.
+        while( !currVertexSet.isEmpty() ){
+            // Add current vertex to the list of visited vertices and to the final sort
+            n = currVertexSet.poll();
+            if( n != null && !visitedVertices.contains(n)) {
+                visitedVertices.add(n);
+                topSort.add(n);
+            } else
+                continue;
+
+            for (Node gn : graphToSort.getNodeSet()){
+                // Get leaving neighbours
+                ArrayList<Node> gnEnteringNeighbours = new ArrayList<>();
+                for(Edge e : gn.getEnteringEdgeSet())
+                    gnEnteringNeighbours.add(e.getSourceNode());
+
+                // Get new leafs
+                if( gn.getEnteringEdgeSet().size() > 0 &&
+                    !visitedVertices.contains(gn) &&
+                    visitedVertices.containsAll(gnEnteringNeighbours) )
+                    currVertexSet.add(gn);
+            }
+        }
+
+        // System.out.println("Topological sort: " + topSort);
+        if( topSort.size() != graphToSort.getNodeCount() ) {
+            System.out.println("Error in topSort");
+        }
+
+        // Set longest path for all nodes
+        for(Node gn : topSort){
+            if( gn.getEnteringEdgeSet().size() == 0 ) {
+                gn.addAttribute("releaseDate", 0);
+                instance.getInitialStateSimple().getNode(gn.getId()).addAttribute("releaseDate", 0);
+            }else {
+                Integer max = 0;
+                for(Edge e : gn.getEnteringEdgeSet())
+                    if( (Integer)e.getSourceNode().getAttribute("releaseDate") + (Integer)e.getSourceNode().getAttribute("processingTime") > max )
+                        max = (Integer)e.getSourceNode().getAttribute("releaseDate") + (Integer)e.getSourceNode().getAttribute("processingTime");
+
+                gn.addAttribute("releaseDate", max);
+                instance.getInitialStateSimple().getNode(gn.getId()).addAttribute("releaseDate", max);
+            }
+        }
+    }
+
+    private static Integer getLowerBound(BBInstance instance, boolean _final) {
+        if( _final )
+            return instance.getInitialStateSimple().getNode("SINK").getAttribute("releaseDate");
+        else
+            return instance.getInitialStateSimple().getNode("SINK").getAttribute("releaseDate"); // change to enhanced value
     }
 }
