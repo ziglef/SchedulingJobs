@@ -36,11 +36,11 @@ public class BBInstanceSolver {
         }
 
         // call step 2 of the B&B alg
-        BBSolver( instance, omega, bbTree.getNode("ROOT") );
+        BBSolver( instance, omega, bbTree.getNode("ROOT"), topologicalSort(instance) );
     }
 
     // BBSolver Step 2: Machine Selection
-    public static void BBSolver(BBInstance currInstance, ArrayList<MultiNode> omega, Node lastInstance){
+    public static void BBSolver(BBInstance currInstance, ArrayList<MultiNode> omega, Node lastInstance, ArrayList<Node> previousSort){
         /*System.out.print("Omega: {");
         for( MultiNode n : omega ){
             System.out.print(" (" + ((Integer)n.getAttribute("machine")+1) + "," + ((Integer)n.getAttribute("job")+1) + ")");
@@ -49,8 +49,8 @@ public class BBInstanceSolver {
 
         if( omega.size() == 0 ) {
             lastInstance.setAttribute("ui.label", lastInstance.getAttribute("ui.label") + " FEASIBLE SOLUTION");
-            if( getLowerBound(currInstance, true) < upperBound )
-                upperBound = getLowerBound(currInstance, true);
+            if( getLowerBound(currInstance) < upperBound )
+                upperBound = getLowerBound(currInstance);
             System.out.println("New upperBound found with value: " + upperBound);
             // currInstance.getInitialStateSimple().display();
             return;
@@ -89,12 +89,12 @@ public class BBInstanceSolver {
 
         for (Integer minMachine : minMachines) {
             //System.out.println("Solving for minTOmega: " + minTOmega + " and minMachine: " + minMachine);
-            BBSolver(currInstance, omega, minTOmega, minMachine, lastInstance);
+            BBSolver(currInstance, omega, minTOmega, minMachine, lastInstance, previousSort);
         }
     }
 
     // BBSolver Step 3: Branching
-    public static void BBSolver(BBInstance currInstance, ArrayList<MultiNode> omega, Integer minTOmega, Integer minMachine, Node lastInstance){
+    public static void BBSolver(BBInstance currInstance, ArrayList<MultiNode> omega, Integer minTOmega, Integer minMachine, Node lastInstance, ArrayList<Node> previousSort){
         // find all tasks on omega that uses machine minMachine and has its rij < minTOmega
         ArrayList<MultiNode> omegaPrime = new ArrayList<>();
         ArrayList<MultiNode> newOmega;
@@ -122,6 +122,7 @@ public class BBInstanceSolver {
 
         // for each of those delete them from omega and add its follower to omega and go back to step 2
         MultiGraph initialState = (MultiGraph)Graphs.clone(currInstance.getInitialStateSimple());
+        ArrayList<Node> topSort = new ArrayList<>(previousSort);
         for( MultiNode n : omegaPrime ){
             newOmega = new ArrayList<>();
             for( MultiNode mn : omega )
@@ -143,13 +144,13 @@ public class BBInstanceSolver {
                 }
             }
 
-            BBInstance newInstance = updateReleaseDates(currInstance, n);
+            BBInstance newInstance = updateReleaseDates(currInstance, n, topSort);
             ArrayList<MultiNode> updatedOmega = new ArrayList<>();
             for ( MultiNode mn : newOmega ){
                 updatedOmega.add( (MultiNode)newInstance.getInitialStateSimple().getNode(mn.getId()) );
             }
 
-            if( getLowerBound(newInstance, false) < upperBound /* && getLowerBound(newInstance) >= (Integer)lastInstance.getAttribute("lowerBound") */) {
+            if( getLowerBound(newInstance) < upperBound /* && getLowerBound(newInstance) >= (Integer)lastInstance.getAttribute("lowerBound") */) {
                 String id = n.getId() + bbTree.getNodeCount();
                 bbTree.addNode(id);
                 for (String s : n.getAttributeKeySet()) {
@@ -157,19 +158,21 @@ public class BBInstanceSolver {
                 }
                 bbTree.addEdge(lastInstance.getId() + "->" + id, lastInstance.getId(), id);
 
-                bbTree.getNode(id).addAttribute("lowerBound", getLowerBound(newInstance, false));
-                bbTree.getNode(id).setAttribute("ui.label", (String) bbTree.getNode(id).getAttribute("ui.label") + " LB: " + bbTree.getNode(id).getAttribute("lowerBound"));
+                bbTree.getNode(id).addAttribute("lowerBound", getLowerBound(newInstance));
+                bbTree.getNode(id).setAttribute("ui.label", bbTree.getNode(id).getAttribute("ui.label") + " LB: " + bbTree.getNode(id).getAttribute("lowerBound"));
 
                 // System.out.println("Exploring node: " + bbTree.getNode(id).getAttribute("ui.label"));
-                BBSolver(newInstance, updatedOmega, bbTree.getNode(id));
+                BBSolver(newInstance, updatedOmega, bbTree.getNode(id), topSort);
             }
 
             currInstance.setInitialStateSimple(initialState);
+            topSort = new ArrayList<>(previousSort);
         }
     }
 
-    private static BBInstance updateReleaseDates( BBInstance currInstance, MultiNode from ){
-        MultiGraph newState = currInstance.getInitialStateSimple();
+    private static BBInstance updateReleaseDates( BBInstance currInstance, MultiNode from, ArrayList<Node> previousSort ){
+        MultiGraph newState = (MultiGraph)Graphs.clone(currInstance.getInitialStateSimple());
+        ArrayList<Node> topSort = previousSort;
 
         for( Node n : newState.getNodeSet() ){
             // n.setAttribute("releaseDate", n.getAttribute("longestPath"));
@@ -192,16 +195,195 @@ public class BBInstanceSolver {
                     newState
                             .getEdge("E: (" + from.getId() + "->" + n.getId() + ")" + (newState.getEdgeCount() - 1))
                             .addAttribute("type", "disjunctive");
+
+                    currInstance.setInitialStateSimple( newState );
+                    ArrayList<Node> tempSort = new ArrayList<>();
+                    for (Node tsn : topSort ){
+                        tempSort.add(newState.getNode(tsn.getId()));
+                    }
+                    topSort = topologicalSort(tempSort, from, n);
                 }
             }
         }
 
         currInstance.setInitialStateSimple( newState );
+        // System.out.println("topSort before: " + topSort);
+        ArrayList<Node> tempSort = new ArrayList<>();
+        for (Node tsn : topSort ){
+            tempSort.add(newState.getNode(tsn.getId()));
+        }
+        topSort = topologicalSort(tempSort, from, newState.getNode("SINK"));
+        // System.out.println("topSort after: " + topSort);
         if( precise )
-            getLongestPath(currInstance);
+            getLongestPath(currInstance, topSort);
         else
-            getLongestPathApprox(currInstance);
+            getLongestPath(currInstance, topSort);
+
         return currInstance;
+    }
+
+    private static int findNodeIndex(ArrayList<Node> array, Node n){
+        int index = -1;
+
+        for(int i=0; i<array.size(); i++){
+            if( array.get(i).getId().equals(n.getId()) ) {
+                return i;
+            }
+        }
+
+        return index;
+    }
+
+    private static ArrayList<Node> reorderTopSort(ArrayList<Node> oldTopSort, Set<Node> fSet, Set<Node> bSet) {
+        ArrayList<Node> newTopSort = new ArrayList<>(oldTopSort);
+        ArrayList<Node> setsMerge = new ArrayList<>();
+        ArrayList<Node> fSet_a = new ArrayList<>(fSet);
+        ArrayList<Node> bSet_a = new ArrayList<>(bSet);
+        ArrayList<Integer> newOrder = new ArrayList<>();
+
+/*
+        System.out.println("OldTopSort: " + oldTopSort);
+        System.out.println("Old fSet: " + fSet);
+        System.out.println("Old fSet_a: " + fSet_a);
+        System.out.println("Old bSet: " + bSet);
+        System.out.println("Old bSet_a: " + bSet_a);
+*/
+        if( fSet_a.size() > 1 ) {
+            // System.out.println("Asking to sort: " + fSet_a.size() + " elements!");
+            fSet_a = nodeSort(oldTopSort, fSet_a);
+        }
+        if( bSet_a.size() > 1 ) {
+            // System.out.println("Asking to sort: " + bSet_a.size() + " elements!");
+            bSet_a = nodeSort(oldTopSort, bSet_a);
+        }
+/*
+        System.out.println("New fSet_a: " + fSet_a);
+        System.out.println("New bSet_a: " + bSet_a);
+*/
+
+        for(Node n : bSet_a) {
+            newOrder.add(findNodeIndex(oldTopSort, n));
+            setsMerge.add(n);
+        }
+
+        for(Node n : fSet_a) {
+            newOrder.add(findNodeIndex(oldTopSort, n));
+            setsMerge.add(n);
+        }
+
+        for(int i=0; i<newOrder.size(); i++){
+            newTopSort.set(newOrder.get(i), setsMerge.get(i));
+        }
+
+        return newTopSort;
+    }
+
+    private static ArrayList<Node> nodeSort(ArrayList<Node> oldTopSort, ArrayList<Node> set) {
+        if( set == null || set.size() == 0 )
+            return null;
+
+        return nodeSort(oldTopSort, set, 0, set.size()-1);
+    }
+
+    private static ArrayList<Node> nodeSort(ArrayList<Node> oldTopSort, ArrayList<Node> set, int low, int high) {
+        ArrayList<Node> sortedList = set;
+        Node pivot = sortedList.get(low+(high-low)/2);
+        int pivotIndex = findNodeIndex(oldTopSort, pivot);
+        int i = low;
+        int j = high;
+
+        while( i <= j ){
+            while( findNodeIndex(oldTopSort, sortedList.get(i)) < pivotIndex )
+                i++;
+
+            while( findNodeIndex(oldTopSort, sortedList.get(j)) > pivotIndex )
+                j--;
+
+            if( i <= j ){
+                Collections.swap(sortedList, i, j);
+                i++;
+                j--;
+            }
+        }
+
+        if( low < j )
+            sortedList = nodeSort(oldTopSort, sortedList, low, j);
+        if( i < high )
+            sortedList = nodeSort(oldTopSort, sortedList, i, high);
+
+        return sortedList;
+    }
+
+    private static Set<Node> dfs_f(ArrayList<Node> oldTopSort, Node to, int fromIndex, Set<Node> visitedVertices){
+        Set<Node> fSet = new HashSet<>();
+
+        visitedVertices.add(to);
+        fSet.add(to);
+
+        for(Edge e : to.getLeavingEdgeSet()){
+            Node w = e.getTargetNode();
+            int wIndex = findNodeIndex(oldTopSort, w);
+            /*
+            System.out.println("w: " + w);
+            System.out.println("ord[w]: " + wIndex);
+            System.out.println("Checking if w is already visited: " + visitedVertices.contains(w));
+            System.out.println("Checking if ord[w] < ord[x]: " + (wIndex < fromIndex));
+            */
+            if( !visitedVertices.contains(w) && wIndex < fromIndex )
+                fSet.addAll(dfs_f(oldTopSort, w, wIndex, visitedVertices));
+        }
+
+        return fSet;
+    }
+
+    private static Set<Node> dfs_b(ArrayList<Node> oldTopSort, Node from, int toIndex, Set<Node> visitedVertices){
+        Set<Node> bSet = new HashSet<>();
+
+        visitedVertices.add(from);
+        bSet.add(from);
+
+        for(Edge e : from.getEnteringEdgeSet()){
+            Node w = e.getSourceNode();
+            int wIndex = findNodeIndex(oldTopSort, w);
+            /*
+            System.out.println("w: " + w);
+            System.out.println("ord[w]: " + wIndex);
+            System.out.println("Checking if w is already visited: " + visitedVertices.contains(w));
+            System.out.println("Checking if ord[y] < ord[w]: " + (toIndex < wIndex));
+            */
+            if( !visitedVertices.contains(w) && toIndex < wIndex )
+                bSet.addAll(dfs_b(oldTopSort, w, wIndex, visitedVertices));
+        }
+
+        return bSet;
+    }
+
+    private static ArrayList<Node> topologicalSort(ArrayList<Node> oldTopSort, Node from, Node to){
+        ArrayList<Node> newTopSort;
+        int fromIndex = findNodeIndex(oldTopSort, from);
+        int toIndex = findNodeIndex(oldTopSort, to);
+
+        if( toIndex > fromIndex ) {
+            newTopSort = new ArrayList<>(oldTopSort);
+        } else { // Dynamic topSort
+            /*
+            System.out.println("CHANGES!");
+            System.out.println("From: " + from + " ord[x]: " + fromIndex);
+            System.out.println("To: " + to + " ord[y]: " + toIndex);
+            System.out.println("OldTopSort: " + oldTopSort);
+            */
+            Set<Node> fSet = dfs_f(oldTopSort, to, fromIndex, new HashSet<Node>());
+            Set<Node> bSet = dfs_b(oldTopSort, from, toIndex, new HashSet<Node>());
+            /*
+            System.out.println("dfs_f: " + fSet);
+            System.out.println("dfs_b: " + bSet);
+            */
+            newTopSort = reorderTopSort(oldTopSort, fSet, bSet);
+            // System.out.println("NewTopSort: " + newTopSort);
+        }
+
+        // System.out.println("TopSort: " + newTopSort);
+        return newTopSort;
     }
 
     private static ArrayList<Node> topologicalSort(BBInstance instance){
@@ -259,34 +441,31 @@ public class BBInstanceSolver {
         return topSort;
     }
 
-    private static void getLongestPathApprox(BBInstance currInstance) {
-
-    }
-
-    private static void getLongestPath(BBInstance instance){
-       ArrayList<Node> topSort = topologicalSort(instance);
-
+    private static void getLongestPath(BBInstance instance, ArrayList<Node> topSort){
         // Set longest path for all nodes
+        //System.out.println("TopSort: " + topSort);
         for(Node gn : topSort){
+            // System.out.println("Calculating releaseDate for node: " + gn);
+            // System.out.println("Which has " + gn.getEnteringEdgeSet().size() + " entering edges!");
             if( gn.getEnteringEdgeSet().size() == 0 ) {
                 gn.addAttribute("releaseDate", 0);
                 instance.getInitialStateSimple().getNode(gn.getId()).addAttribute("releaseDate", 0);
-            }else {
+            } else {
                 Integer max = 0;
-                for(Edge e : gn.getEnteringEdgeSet())
-                    if( (Integer)e.getSourceNode().getAttribute("releaseDate") + (Integer)e.getSourceNode().getAttribute("processingTime") > max )
-                        max = (Integer)e.getSourceNode().getAttribute("releaseDate") + (Integer)e.getSourceNode().getAttribute("processingTime");
-
+                for(Edge e : gn.getEnteringEdgeSet()) {
+                    //System.out.println("Getting releaseDate and processingTime for node: " + e.getSourceNode().getId());
+                    //System.out.println("ReleaseDate: " + e.getSourceNode().getAttribute("releaseDate"));
+                    //System.out.println("ProcessingTime: " + e.getSourceNode().getAttribute("processingTime"));
+                    if ((Integer) e.getSourceNode().getAttribute("releaseDate") + (Integer) e.getSourceNode().getAttribute("processingTime") > max)
+                        max = (Integer) e.getSourceNode().getAttribute("releaseDate") + (Integer) e.getSourceNode().getAttribute("processingTime");
+                }
                 gn.addAttribute("releaseDate", max);
                 instance.getInitialStateSimple().getNode(gn.getId()).addAttribute("releaseDate", max);
             }
         }
     }
 
-    private static Integer getLowerBound(BBInstance instance, boolean _final) {
-        if( _final )
-            return instance.getInitialStateSimple().getNode("SINK").getAttribute("releaseDate");
-        else
-            return instance.getInitialStateSimple().getNode("SINK").getAttribute("releaseDate"); // change to enhanced value
+    private static Integer getLowerBound(BBInstance instance) {
+        return instance.getInitialStateSimple().getNode("SINK").getAttribute("releaseDate");
     }
 }

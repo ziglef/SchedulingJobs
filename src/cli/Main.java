@@ -28,6 +28,7 @@ public class Main {
         BBInstanceSolver.precise = true;
         System.out.println("Press Any Key To Continue...");
         new java.util.Scanner(System.in).nextLine();
+        // BBInstanceSolver.upperBound = 843;
         BBInstanceSolver.BBSolver(bbInstance);
         System.out.println("Minimum makespan: " + BBInstanceSolver.upperBound);
         System.out.println("Press Any Key To Continue...");
