@@ -1,0 +1,10 @@
+https://support.sas.com/documentation/cdl/en/orcpug/59630/HTML/default/viewer.htm#orcpug_clp_sect032.htm
+
+ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=4631564
+
+https://books.google.pt/books?hl=en&lr=&id=QRiDnuXSnVwC&oi=fnd&pg=PR3&dq=Pinedo+Scheduling++Theory,+Algorithms+and+Systems+2002&ots=HePp3PFZZT&sig=DUztfBz8ChhUwxBAwloy0ShCbBI&redir_esc=y#v=onepage&q&f=false
+
+DATASETS:
+http://people.brunel.ac.uk/~mastjjb/jeb/info.html
+http://people.brunel.ac.uk/~mastjjb/jeb/orlib/files/jobshop1.txt
+http://people.brunel.ac.uk/~mastjjb/jeb/orlib/files/jobshop2.txt
