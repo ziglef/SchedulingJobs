@@ -3,9 +3,9 @@ package solver;
 import models.BBInstance;
 import org.graphstream.graph.Edge;
 import org.graphstream.graph.Node;
-import org.graphstream.graph.implementations.Graphs;
 import org.graphstream.graph.implementations.MultiGraph;
 import org.graphstream.graph.implementations.MultiNode;
+import utils.GraphUtil;
 
 import java.util.*;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -14,6 +14,7 @@ public class BBInstanceSolver {
 
     public static MultiGraph bbTree = new MultiGraph("bbTree");
     public static Integer upperBound = Integer.MAX_VALUE;
+    public static MultiGraph upperBoundGraph = null;
     public static boolean precise = true;
 
     // BBSolver Step 1: Initial Condition
@@ -49,9 +50,11 @@ public class BBInstanceSolver {
 
         if( omega.size() == 0 ) {
             lastInstance.setAttribute("ui.label", lastInstance.getAttribute("ui.label") + " FEASIBLE SOLUTION");
-            if( getLowerBound(currInstance) < upperBound )
+            if( getLowerBound(currInstance) < upperBound ) {
                 upperBound = getLowerBound(currInstance);
-            System.out.println("New upperBound found with value: " + upperBound);
+                upperBoundGraph = currInstance.getInitialStateSimple();
+                System.out.println("New upperBound found with value: " + upperBound);
+            }
             // currInstance.getInitialStateSimple().display();
             return;
         }
@@ -121,7 +124,10 @@ public class BBInstanceSolver {
         System.out.println(" }");*/
 
         // for each of those delete them from omega and add its follower to omega and go back to step 2
+        /* OLD SOLUTION
         MultiGraph initialState = (MultiGraph)Graphs.clone(currInstance.getInitialStateSimple());
+        */
+        MultiGraph initialState = GraphUtil.clone(currInstance.getInitialStateSimple());
         ArrayList<Node> topSort = new ArrayList<>(previousSort);
         for( MultiNode n : omegaPrime ){
             newOmega = new ArrayList<>();
@@ -171,7 +177,10 @@ public class BBInstanceSolver {
     }
 
     private static BBInstance updateReleaseDates( BBInstance currInstance, MultiNode from, ArrayList<Node> previousSort ){
-        MultiGraph newState = (MultiGraph)Graphs.clone(currInstance.getInitialStateSimple());
+        /* OLD SOLUTION
+        MultiGraph newState = (MultiGraph) Graphs.clone(currInstance.getInitialStateSimple());
+        */
+        MultiGraph newState = GraphUtil.clone(currInstance.getInitialStateSimple());
         ArrayList<Node> topSort = previousSort;
 
         for( Node n : newState.getNodeSet() ){
@@ -388,7 +397,10 @@ public class BBInstanceSolver {
 
     private static ArrayList<Node> topologicalSort(BBInstance instance){
         // General vars
-        MultiGraph graphToSort = (MultiGraph)Graphs.clone(instance.getInitialStateSimple());
+        /* OLD SOLUTION
+        MultiGraph graphToSort = (MultiGraph) Graphs.clone(instance.getInitialStateSimple());
+        */
+        MultiGraph graphToSort = GraphUtil.clone(instance.getInitialStateSimple());
         Node n;
 
         // Final topological sort
